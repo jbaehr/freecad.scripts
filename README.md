@@ -15,11 +15,12 @@ but its a different story (which has also been discussed on the forum already).
 The goal is to address those use cases that a custom WB could fulfill, but where its an overkill
 to create such a thing; especially for one-off stuff.
 
+
 ## Security
 
 Generally, embedding executable code in a document is dangerous!
 
-Do not execute the script, unless that user has explicitly unlocks it.
+Do not execute a script, unless the user has explicitly allowed it.
 The allow-list is stored as part of the local FreeCAD settings
  - filename
  - script name (i.e. name of document object)
@@ -35,7 +36,7 @@ Yes, it still can be harmful, but its not more dangerous than 3rd party macros o
 
 - Create a new Script object
   No shape, just props, i.e. "App::FeaturePython"
-  - later, maybe differeent flavors (each with different template) could be offered
+  - later, maybe different flavors (each with different template) could be offered
     - one with Shape, i.e. "Part::FeaturePython"
       - For PD: "PartDesign::FeaturePython", "PartDesign::FeatureAdditivePython"
     - one with 2D Shape, i.e. "Part::Part2DObjectPython"
@@ -57,11 +58,11 @@ Yes, it still can be harmful, but its not more dangerous than 3rd party macros o
 use the python icon in the document tree
  - use variants for scripts producing no shape, 3D shape or 2D shape
 use a lock overlay icon if it's execution is not allowed
-use the build-on python editor
+use the build-in python editor
 use a task panel to set the `AllowExecution` check box and set in/out props
 
 creating new Scripts automatically allows their execution
-changing an unlocked script, is does not get lock it again
+changing an unlocked script, does not lock it again
 
 use various templates
 add own templates (can we use pyyaml?, i.e. is it always available)
@@ -77,6 +78,9 @@ add own templates (can we use pyyaml?, i.e. is it always available)
 
 The `onDocumentRestored` hook checks whether the script is unlocked or not.
 The result is stored in the `IsUnlocked` (better `AllowExecution`?) transient, boolean, property.
+We need to prevent this being overwritten by an Expression!
+So maybe a property is not good, use python member instead (and don't serialize it)
+
 When the proxy's `execute` method is called, it checks wether it is unlocked.
 If unlocked, then the code is loaded as a module, to execute in its own namespace.
 Code is in the `Definition` (or `Script`?) string property (similar to `Text` of "App::Text" objects)
@@ -114,6 +118,10 @@ def execute(obj):
 
 ## Design Rationale
 
+Using properties make it easier for the user to "parametrizise" her scripts
+
+Using properties make it easier to interact with other objects via expressions
+
 Using in/out properties allows FreeCAD to track dependencies for recalculation
 
 Using a dedicated method as entry point
@@ -136,3 +144,12 @@ How to call this?
  - "scripted document objects"?
  - "dynamic proxy"? in fact, its similar to what the "dynamic data" WB offered...
  - "scripting host", "scripted proxy", "scripted object
+
+### Related
+
+Mnesarco's Utils for FreeCAD
+ - https://forum.freecad.org/viewtopic.php?f=22&t=54026
+ - https://github.com/mnesarco/FreeCAD_Utils
+
+Idea from onkk: A "Scripted object" in FreeCAD maybe a separate WB.
+ - https://forum.freecad.org/viewtopic.php?t=76193
