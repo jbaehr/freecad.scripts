@@ -153,3 +153,10 @@ Mnesarco's Utils for FreeCAD
 
 Idea from onkk: A "Scripted object" in FreeCAD maybe a separate WB.
  - https://forum.freecad.org/viewtopic.php?t=76193
+
+## Running the Tests
+
+On macOS:
+```sh
+~/src/freecad.scripts$ /Applications/FreeCAD.app/Contents/MacOS/FreeCAD --python-path . --console --run-test "freecad.scripts.tests"
+```
