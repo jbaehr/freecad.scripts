@@ -13,6 +13,13 @@ def make_shapeless_object(name):
     return obj
 
 
+def make_3d_object(name):
+    """make_3d_object(name): make a scripted object with a 3D shape."""
+    obj = App.ActiveDocument.addObject("Part::FeaturePython", name)
+    _ScriptedObject(obj)
+    return obj
+
+
 class _ScriptedObject:
     """The document object proxy for "Scripted Objects"."""
 
