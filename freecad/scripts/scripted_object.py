@@ -4,6 +4,7 @@ This module defines the "Scripted Object" document object
 
 import sys
 import FreeCAD as App
+from FreeCAD import Console
 
 
 def make_shapeless_object(name):
@@ -27,8 +28,23 @@ class _ScriptedObject:
         obj.Proxy = self
         obj.addProperty("App::PropertyString", "Definition", "Script",
             "The definition of this script, i.e. python code.")
+        obj.addProperty("App::PropertyBool", "AllowExecution", "Script",
+            "Allow the execution of this script. Do this only if the source is trustworthy!")
+        obj.setPropertyStatus("AllowExecution", "Transient")
+        obj.AllowExecution = True # if we just create the sript, we trust ourself
+
+    def onDocumentRestored(self, obj):
+        # per default, block execution when loading from disk: we don't know if it's trustworthy.
+        # TODO: check allow list in user settings
+        obj.AllowExecution = False
+        # As expressions override persisted property values, we have to make sure that a malicious
+        # document does not trick us into execution that way.
+        obj.setExpression("AllowExecution", None)
 
     def execute(self, obj):
+        if not obj.AllowExecution:
+            Console.PrintError(f"Execution of script {obj.Name} is not allowed")
+            return
         code = compile(obj.Definition, obj.Name, "exec")
         module = type(sys)(obj.Name)
         exec(code, module.__dict__)

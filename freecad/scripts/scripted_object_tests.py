@@ -3,6 +3,8 @@ This module contains all tests for the "Scripted Object"
 """
 
 import unittest
+import tempfile
+import pathlib
 from math import pi
 import FreeCAD
 
@@ -44,4 +46,57 @@ class TestScriptedObject(unittest.TestCase):
         self.doc.recompute()
         self.assertAlmostEqual(obj.Shape.Volume, 4/3 * pi * 25**3, delta=0.1)
 
+    def testSecurity_ExecutionWhenLoadingFromDisk_BlockPerDefault(self):
+        create_echo_object("Parrot")
+        self.doc = save_and_reload(self.doc)
+        obj = self.doc.getObject("Parrot")
+        obj.In = "hello Polly"
+        self.doc.recompute()
+        self.assertNotEqual(obj.In, obj.Out)
 
+    def testSecurity_ExecutionWhenLoadingFromDisk_ExecuteWhenExplicitlyAllowed(self):
+        create_echo_object("Parrot")
+        self.doc = save_and_reload(self.doc)
+        obj = self.doc.getObject("Parrot")
+        obj.In = "hello Polly"
+        obj.AllowExecution = True
+        self.doc.recompute()
+        self.assertEqual(obj.In, obj.Out)
+
+    def testSecurity_ExecutionWhenLoadingFromDisk_DontSaveAllowFlag(self):
+        obj = create_echo_object("Parrot")
+        obj.AllowExecution = True
+        self.doc = save_and_reload(self.doc)
+        obj = self.doc.getObject("Parrot")
+        obj.In = "hello Polly"
+        self.doc.recompute()
+        self.assertNotEqual(obj.In, obj.Out)
+
+    def testSecurity_ExecutionWhenLoadingFromDisk_DontAllowExpressionForAllowence(self):
+        obj = create_echo_object("Parrot")
+        obj.setExpression("AllowExecution", "True")
+        self.doc = save_and_reload(self.doc)
+        obj = self.doc.getObject("Parrot")
+        obj.In = "hello Polly"
+        self.doc.recompute()
+        self.assertNotEqual(obj.In, obj.Out)
+
+
+def save_and_reload(doc):
+    """Test helper to save the given doc to disk, reloads and returns it"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        filename = pathlib.Path(tmpdir).joinpath(doc.Name).with_suffix(".FCStd")
+        doc.saveAs(str(filename)) # TODO: add pathlib support
+        FreeCAD.closeDocument(doc.Name)
+        doc = FreeCAD.openDocument(str(filename)) # TODO: add pathlib support
+        return doc
+
+
+def create_echo_object(name):
+    """Test helper that creates a scripted object that echos obj.In to obj.Out"""
+    obj = scripted_object.make_shapeless_object(name)
+    obj.addProperty("App::PropertyString", "In", "Input")
+    obj.addProperty("App::PropertyString", "Out", "Ouput")
+    obj.setPropertyStatus("Out", ["Output", "ReadOnly"])
+    obj.Definition = "def execute(obj): obj.Out = obj.In"
+    return obj
