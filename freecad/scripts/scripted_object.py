@@ -14,6 +14,13 @@ def make_shapeless_object(name):
     return obj
 
 
+def make_2d_object(name):
+    """make_2d_object(name): make a scripted object with a 2D shape."""
+    obj = App.ActiveDocument.addObject("Part::Part2DObjectPython", name)
+    _ScriptedObject(obj)
+    return obj
+
+
 def make_3d_object(name):
     """make_3d_object(name): make a scripted object with a 3D shape."""
     obj = App.ActiveDocument.addObject("Part::FeaturePython", name)

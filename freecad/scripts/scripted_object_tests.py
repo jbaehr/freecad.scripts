@@ -46,6 +46,22 @@ class TestScriptedObject(unittest.TestCase):
         self.doc.recompute()
         self.assertAlmostEqual(obj.Shape.Volume, 4/3 * pi * 25**3, delta=0.1)
 
+    def test2dObject_Demo(self):
+        profile = scripted_object.make_2d_object("Demo")
+        profile.addProperty("App::PropertyLength", "Radius", "Input")
+        profile.Definition = "\n".join([
+            "import Part",
+            "def execute(obj):",
+            "   obj.Shape = Part.makeCircle(obj.Radius)",
+            ])
+        profile.Radius = "25 mm"
+        extrusion = self.doc.addObject("Part::Extrusion", "DemoExtrusion")
+        extrusion.Base = profile
+        extrusion.LengthFwd = "50 mm"
+        extrusion.Solid = True
+        self.doc.recompute()
+        self.assertAlmostEqual(extrusion.Shape.Volume, pi * 25**2 * 50, delta=0.1)
+
     def testSecurity_ExecutionWhenLoadingFromDisk_BlockPerDefault(self):
         create_echo_object("Parrot")
         self.doc = save_and_reload(self.doc)
