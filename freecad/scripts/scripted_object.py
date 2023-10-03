@@ -50,7 +50,7 @@ class _ScriptedObject:
 
     def execute(self, obj):
         if not obj.AllowExecution:
-            Console.PrintError(f"Execution of script {obj.Name} is not allowed")
+            Console.PrintError(f"Execution of script {obj.Name} is not allowed\n")
             return
         code = compile(obj.Definition, obj.Name, "exec")
         module = type(sys)(obj.Name)
