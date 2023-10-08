@@ -7,8 +7,16 @@ import tempfile
 import pathlib
 from math import pi
 import FreeCAD
+if FreeCAD.GuiUp:
+    import FreeCADGui
 
 from . import scripted_object
+
+def requires_gui(test):
+    """decorator to mark GUI tests"""
+    if FreeCAD.GuiUp:
+        return test
+    return unittest.skip("requires the FreeCAD GUI")(test)
 
 
 class TestScriptedObject(unittest.TestCase):
@@ -18,6 +26,24 @@ class TestScriptedObject(unittest.TestCase):
 
     def tearDown(self):
         FreeCAD.closeDocument(self.doc.Name)
+
+    def assertSuccessfulRecompute(self, *objs, msg=None):
+        if (len(objs) == 0):
+            self.doc.recompute()
+            objs = self.doc.Objects
+        else:
+            self.doc.recompute(objs)
+        failed_objects = [o.Name for o in objs if 'Invalid' in o.State]
+        if (len(failed_objects) > 0):
+            self.fail(msg or f"Recompute failed for {failed_objects}")
+
+    def assertDocumentObjectExists(self, name, msg=None):
+        obj = self.doc.getObject(name)
+        self.failIf(obj is None, msg or f"Document does not contain expected object '{name}'")
+
+    def assertDocumentObjectNotExists(self, name, msg=None):
+        obj = self.doc.getObject(name)
+        self.failUnless(obj is None, msg or f"Document does contain unexpected object '{name}'")
 
     def testShapelessObject_Demo(self):
         obj = scripted_object.make_shapeless_object("Demo")
@@ -31,7 +57,7 @@ class TestScriptedObject(unittest.TestCase):
             ])
         obj.Hight = "3 mm"
         obj.Width = "2 mm"
-        self.doc.recompute()
+        self.assertSuccessfulRecompute()
         self.assertEqual(obj.Area.Value, 6)
 
     def test3dObject_Demo(self):
@@ -43,7 +69,7 @@ class TestScriptedObject(unittest.TestCase):
             "   obj.Shape = Part.makeSphere(obj.Radius)",
             ])
         obj.Radius = "25 mm"
-        self.doc.recompute()
+        self.assertSuccessfulRecompute()
         self.assertAlmostEqual(obj.Shape.Volume, 4/3 * pi * 25**3, delta=0.1)
 
     def test2dObject_Demo(self):
@@ -59,7 +85,7 @@ class TestScriptedObject(unittest.TestCase):
         extrusion.Base = profile
         extrusion.LengthFwd = "50 mm"
         extrusion.Solid = True
-        self.doc.recompute()
+        self.assertSuccessfulRecompute()
         self.assertAlmostEqual(extrusion.Shape.Volume, pi * 25**2 * 50, delta=0.1)
 
     def testSecurity_ExecutionWhenLoadingFromDisk_BlockPerDefault(self):
@@ -96,6 +122,39 @@ class TestScriptedObject(unittest.TestCase):
         obj.In = "hello Polly"
         self.doc.recompute()
         self.assertNotEqual(obj.In, obj.Out)
+
+    @requires_gui
+    def testCommandShapelessObject_CreatesDocumentObject(self):
+        FreeCADGui.runCommand('Scripts_ShapelessObject')
+        self.assertDocumentObjectExists('ScriptedObject')
+
+    @requires_gui
+    def testCommandShapelessObject_IsUndoable(self):
+        FreeCADGui.runCommand('Scripts_ShapelessObject')
+        FreeCADGui.runCommand('Std_Undo')
+        self.assertDocumentObjectNotExists('ScriptedObject')
+
+    @requires_gui
+    def testCommand2DObject_CreatesDocumentObject(self):
+        FreeCADGui.runCommand('Scripts_2DObject')
+        self.assertDocumentObjectExists('Scripted2DObject')
+
+    @requires_gui
+    def testCommand2DObject_IsUndoable(self):
+        FreeCADGui.runCommand('Scripts_2DObject')
+        FreeCADGui.runCommand('Std_Undo')
+        self.assertDocumentObjectNotExists('Scripted2DObject')
+
+    @requires_gui
+    def testCommand3DObject_CreatesDocumentObject(self):
+        FreeCADGui.runCommand('Scripts_3DObject')
+        self.assertDocumentObjectExists('Scripted3DObject')
+
+    @requires_gui
+    def testCommand3DObject_IsUndoable(self):
+        FreeCADGui.runCommand('Scripts_3DObject')
+        FreeCADGui.runCommand('Std_Undo')
+        self.assertDocumentObjectNotExists('Scripted3DObject')
 
 
 def save_and_reload(doc):
