@@ -9,7 +9,10 @@ from FreeCAD import Console
 
 if App.GuiUp:
     import FreeCADGui as Gui
+    from PySide import QtGui
+    from PySide.QtCore import Qt
     from . import ICON_PATH
+    from . import editor
 
 
 def make_shapeless_object(name):
@@ -102,11 +105,76 @@ class _ViewProviderScriptedObject:
         # TODO add support for pathlib to FreeCAD to get rid of this extra `str(...)`
         return str(ICON_PATH / icon)
 
+    def setEdit(self, vobj, mode):
+        panel = _TaskPanelScriptedObject(vobj.Object, mode)
+        Gui.Control.showDialog(panel)
+        return True
+
+    def unsetEdit(self, vobj, mode):
+        Gui.Control.closeDialog()
+        return
+
     def __getstate__(self):
         return None
 
     def __setstate__(self, state):
         pass
+
+
+class _TaskPanelScriptedObject:
+    """The task panel for the script object"""
+
+    def __init__(self, obj, mode):
+        self.obj = obj
+
+        security = QtGui.QWidget()
+        security.setWindowTitle("Security")
+        self.allow_execution = QtGui.QCheckBox("Allow execution", security)
+
+        inputs = QtGui.QWidget()
+        QtGui.QLabel("TODO: property editor", inputs)
+        inputs.setWindowTitle("Inputs")
+
+        outputs = QtGui.QWidget()
+        QtGui.QLabel("TODO: property editor", outputs)
+        outputs.setWindowTitle("Outputs")
+
+        self.form = [security, inputs, outputs]
+
+        self._setup_editor(obj.Name)
+        self._fill_from_obj()
+
+    def _setup_editor(self, title):
+        mdiArea = Gui.getMainWindow().centralWidget()
+        assert isinstance(mdiArea, QtGui.QMdiArea), "Unexpected central widget; incompatible FreeCAD version?"
+        self.editor = editor.Editor()
+        self.subWindow = mdiArea.addSubWindow(self.editor)
+        self.subWindow.setWindowTitle(title)
+        # TODO: find a way to disable the close button of this subWindow
+        self.subWindow.show()
+        mdiArea.setActiveSubWindow(self.subWindow)
+
+    def _fill_from_obj(self):
+        """Transfer properties from the object to the dialog widgets"""
+        self.allow_execution.setCheckState(
+            Qt.CheckState.Checked if self.obj.AllowExecution else Qt.CheckState.Unchecked)
+        self.editor.setPlainText(self.obj.Definition)
+
+    def _write_to_obj(self):
+        """Transfer GUI state from the dialog widgets to the object priperties"""
+        self.obj.AllowExecution = self.allow_execution.checkState() == Qt.CheckState.Checked
+        self.obj.Definition = self.editor.toPlainText()
+
+    def accept(self):
+        self._write_to_obj()
+        self.subWindow.close()
+        Gui.ActiveDocument.resetEdit()
+        App.ActiveDocument.recompute()
+
+    def reject(self):
+        Gui.ActiveDocument.resetEdit()
+        App.ActiveDocument.abortTransaction()
+        self.subWindow.close()
 
 
 def gui_command(name):
