@@ -147,10 +147,27 @@ class _TaskPanelScriptedObject:
     def _setup_editor(self, title):
         mdiArea = Gui.getMainWindow().centralWidget()
         assert isinstance(mdiArea, QtGui.QMdiArea), "Unexpected central widget; incompatible FreeCAD version?"
+        class TaskPanelSubWindow(QtGui.QMdiSubWindow):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.setAttribute(Qt.WA_DeleteOnClose)
+            def closeEvent(self, event):
+                if hasattr(self, 'canClose'):
+                    event.accept()
+                else:
+                    message = ("This window belongs to the active Task Panel.\n"
+                        + "Please use its OK or Cancel buttons instead.")
+                    QtGui.QMessageBox.information(self, None, message)
+                    Gui.Control.showTaskView()
+                    event.ignore()
+            def force_close(self):
+                self.canClose = True
+                self.close()
         self.editor = editor.Editor()
-        self.subWindow = mdiArea.addSubWindow(self.editor)
+        self.subWindow = TaskPanelSubWindow()
+        self.subWindow.setWidget(self.editor)
         self.subWindow.setWindowTitle(title)
-        # TODO: find a way to disable the close button of this subWindow
+        mdiArea.addSubWindow(self.subWindow)
         self.subWindow.show()
         mdiArea.setActiveSubWindow(self.subWindow)
 
@@ -167,14 +184,14 @@ class _TaskPanelScriptedObject:
 
     def accept(self):
         self._write_to_obj()
-        self.subWindow.close()
         Gui.ActiveDocument.resetEdit()
+        self.subWindow.force_close()
         App.ActiveDocument.recompute()
 
     def reject(self):
-        Gui.ActiveDocument.resetEdit()
         App.ActiveDocument.abortTransaction()
-        self.subWindow.close()
+        Gui.ActiveDocument.resetEdit()
+        self.subWindow.force_close()
 
 
 def gui_command(name):
